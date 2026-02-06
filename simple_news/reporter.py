@@ -48,22 +48,17 @@ class HTMLReporter:
         """
         now = datetime.now(self.timezone)
         timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
-        date_str = now.strftime('%Y%m%d_%H%M%S')
         
         html_content = self._generate_html(
             keyword_data, platform_data_list, stats, timestamp
         )
         
-        # 保存报告
-        report_path = self.reports_dir / f'report_{date_str}.html'
-        with open(report_path, 'w', encoding='utf-8') as f:
+        # 只保存为 index.html
+        index_path = self.reports_dir / 'index.html'
+        with open(index_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        # 同时保存为 index.html（方便访问）
-        index_path = self.reports_dir / 'index.html'
-        shutil.copy2(report_path, index_path)
-        
-        return report_path
+        return index_path
 
     def _generate_html(
         self,

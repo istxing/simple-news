@@ -264,7 +264,7 @@ class NewsStorage:
             mode: 查询模式
                 - daily: 全天汇总（今天所有爬取的新闻）
                 - current: 当前榜单（最新一次爬取的新闻）
-                - incremental: 增量更新（最新一次爬取的新闻）
+                - incremental: 增量更新（过滤今天+昨天已有的，返回真正新增的新闻）
         
         Returns:
             新闻列表
@@ -291,24 +291,48 @@ class NewsStorage:
                     ORDER BY platform_id, rank
                 ''', (today, today))
             elif mode == 'incremental':
-                # 增量模式：获取最新一批，与上一批对比
-                # 先获取最新一批的爬取时间
+                # 增量模式：对比今天已保存的所有新闻（最新一批之前的），返回新增的新闻
+                # 获取最新一批的爬取时间
                 cursor.execute('''
                     SELECT MAX(crawl_time) as latest_time FROM news WHERE date = ?
                 ''', (today,))
                 result = cursor.fetchone()
                 latest_time = result['latest_time'] if result else None
                 
-                if latest_time:
-                    # 获取最新一批的新闻
-                    cursor.execute('''
-                        SELECT * FROM news 
-                        WHERE date = ? AND crawl_time = ?
-                        ORDER BY platform_id, rank
-                    ''', (today, latest_time))
-                else:
-                    # 无数据，返回空
+                if not latest_time:
                     return []
+                
+                # 获取今天这批之前的所有标题（不包括最新一批）
+                cursor.execute('''
+                    SELECT DISTINCT title FROM news 
+                    WHERE date = ? AND crawl_time < ?
+                ''', (today, latest_time))
+                existing_titles = {row['title'] for row in cursor.fetchall()}
+                
+                # 也检查昨天的数据库
+                yesterday = (datetime.now(self.timezone) - timedelta(days=1)).strftime('%Y-%m-%d')
+                yesterday_db = self._get_db_path(yesterday)
+                if yesterday_db.exists():
+                    with sqlite3.connect(yesterday_db) as yesterday_conn:
+                        yesterday_conn.row_factory = sqlite3.Row
+                        yesterday_cursor = yesterday_conn.cursor()
+                        yesterday_cursor.execute('SELECT DISTINCT title FROM news')
+                        existing_titles.update({row['title'] for row in yesterday_cursor.fetchall()})
+                
+                # 获取最新一批的新闻
+                cursor.execute('''
+                    SELECT * FROM news 
+                    WHERE date = ? AND crawl_time = ?
+                    ORDER BY platform_id, rank
+                ''', (today, latest_time))
+                latest_news = [dict(row) for row in cursor.fetchall()]
+                
+                # 过滤出新增的新闻（标题不在之前的记录中）
+                incremental_news = [
+                    news for news in latest_news 
+                    if news['title'] not in existing_titles
+                ]
+                return incremental_news
             else:  # daily
                 # 获取全天的新闻
                 cursor.execute('''
