@@ -14,17 +14,16 @@ import pytz
 class HTMLReporter:
     """HTML 报告生成器"""
 
-    def __init__(self, config: Dict, output_dir: Path):
+    def __init__(self, config: Dict, report_dir: Path):
         """
         初始化报告生成器
         
         Args:
             config: 配置字典
-            output_dir: 输出目录
+            report_dir: 报告输出目录
         """
         self.config = config
-        self.output_dir = Path(output_dir)
-        self.reports_dir = self.output_dir / 'reports'
+        self.reports_dir = Path(report_dir)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         
         self.timezone = pytz.timezone(config['app']['timezone'])

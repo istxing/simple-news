@@ -55,7 +55,9 @@ storage:
 report:
   mode: "incremental"                  # 报告模式: current(当前榜单) | daily(全天汇总) | incremental(增量)
   rank_threshold: 5                # 排名高亮阈值（≤此值会高亮）
+
   max_news_per_keyword: 0          # 每个关键词最大显示条数（0=不限制）
+  dir: ""  # 自定义报告输出目录（默认为 storage.data_dir/reports，即 output/reports），支持绝对路径或相对路径
 
 # 通知配置
 notification:

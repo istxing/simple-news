@@ -67,7 +67,13 @@ def main():
         crawler = NewsCrawler(config)
         storage = NewsStorage(config)
         analyzer = KeywordAnalyzer(keywords)
-        reporter = HTMLReporter(config, Path(config['storage']['data_dir']))
+        # 确定报告目录
+        if config.get('report', {}).get('dir'):
+            report_dir = Path(config['report']['dir'])
+        else:
+            report_dir = Path(config['storage']['data_dir']) / 'reports'
+            
+        reporter = HTMLReporter(config, report_dir)
         
         # 爬取新闻
         platform_data_list = crawler.crawl_all(platforms)

@@ -56,6 +56,12 @@ def load_config(config_path: str = None) -> Dict[str, Any]:
             get_project_root() / config['storage']['data_dir']
         )
     
+    # 处理报告目录 (如有)
+    if config.get('report', {}).get('dir'):
+        report_dir = Path(config['report']['dir'])
+        if not report_dir.is_absolute():
+             config['report']['dir'] = str(get_project_root() / report_dir)
+    
     return config
 
 
