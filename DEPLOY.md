@@ -50,7 +50,12 @@ python3 -m venv venv
 # 创建配置目录（如果不存在）
 mkdir -p config
 
-# ⚠️ 重要：你需要上传或创建 config.yaml 和 keywords.txt
+# ⚠️ 重要：配置环境变量（推荐）
+# 复制示例文件并填入敏感信息（如 Bark URL）
+cp .env.example .env
+nano .env
+
+# ⚠️ 同时也需要上传或创建 config.yaml 和 keywords.txt
 # 可以直接在服务器上编辑：
 nano config/config.yaml
 nano config/keywords.txt

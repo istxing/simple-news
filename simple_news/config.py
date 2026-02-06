@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import yaml
+from dotenv import load_dotenv
 
 
 def get_project_root() -> Path:
@@ -28,6 +29,10 @@ def load_config(config_path: str = None) -> Dict[str, Any]:
     Returns:
         配置字典
     """
+    # 1. 加载环境变量 (支持 .env 文件)
+    env_path = get_project_root() / ".env"
+    load_dotenv(env_path)
+
     if config_path is None:
         config_path = get_project_root() / "config" / "config.yaml"
     else:
@@ -39,6 +44,9 @@ def load_config(config_path: str = None) -> Dict[str, Any]:
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     
+    # 2. 环境变量覆盖配置
+    _override_from_env(config)
+    
     # 验证必要的配置项
     _validate_config(config)
     
@@ -49,6 +57,44 @@ def load_config(config_path: str = None) -> Dict[str, Any]:
         )
     
     return config
+
+
+def _override_from_env(config: Dict[str, Any]) -> None:
+    """
+    从环境变量覆盖配置
+    优先级：环境变量 > config.yaml
+    """
+    # Bark 配置
+    bark_url = os.getenv('BARK_URL')
+    if bark_url:
+        # 确保路径存在
+        config.setdefault('notification', {}).setdefault('bark', {})['url'] = bark_url
+        
+    bark_enabled = os.getenv('BARK_ENABLED')
+    if bark_enabled is not None:
+        is_enabled = bark_enabled.lower() in ('true', '1', 'yes', 'on')
+        config.setdefault('notification', {}).setdefault('bark', {})['enabled'] = is_enabled
+
+    # 推送窗口配置
+    # 注意：根据之前的修改，push_window 位于 storage 下（为了兼容性）
+    push_window = config.get('storage', {}).get('push_window', {})
+    
+    push_enabled = os.getenv('PUSH_WINDOW_ENABLED')
+    if push_enabled is not None:
+        is_enabled = push_enabled.lower() in ('true', '1', 'yes', 'on')
+        push_window['enabled'] = is_enabled
+        
+    push_start = os.getenv('PUSH_WINDOW_START')
+    if push_start:
+        push_window['start'] = push_start
+        
+    push_end = os.getenv('PUSH_WINDOW_END')
+    if push_end:
+        push_window['end'] = push_end
+        
+    # 如果 storage 下没有 push_window，确保创建它 (虽然 config.yaml 应该已经有了)
+    if 'push_window' not in config.get('storage', {}):
+        config.setdefault('storage', {})['push_window'] = push_window
 
 
 def _validate_config(config: Dict[str, Any]) -> None:
