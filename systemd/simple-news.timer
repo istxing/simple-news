@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Simple News Crawler Periodically
+
+[Timer]
+# 全天 24 小时运行，每小时的第 10 分钟执行一次
+# 格式: DayOfWeek Year-Month-Day Hour:Minute:Second
+OnCalendar=*-*-* *:54:00
+
+# 立即运行一次（如果过去错过了）
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=Simple News Crawler Service
+After=network.target
+
+[Service]
+Type=oneshot
+# ⚠️ 修改为你的实际用户名，例如: ubuntu, debian, pi
+User=username
+# ⚠️ 修改为你的实际安装路径，例如: /home/username/simple_news
+WorkingDirectory=/home/username/simple_news
+# ⚠️ 使用虚拟环境中的 python
+ExecStart=/home/username/simple_news/venv/bin/python -m simple_news
+
+# 日志配置
+StandardOutput=append:/var/log/simple_news.log
+StandardError=append:/var/log/simple_news.error.log
+
+# 环境变量（如果需要）
+# Environment=PYTHONPATH=/opt/simple_news
+
+[Install]
+WantedBy=multi-user.target

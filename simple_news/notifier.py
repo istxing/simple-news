@@ -35,6 +35,39 @@ class Notifier:
         elif not self.url:
             print("⏭ Bark URL 未配置")
     
+    def check_push_window(self) -> bool:
+        """检查当前时间是否在推送窗口内"""
+        # 从 storage 配置中读取（暂时放在那里）
+        push_config = self.config.get('storage', {}).get('push_window', {})
+        
+        if not push_config.get('enabled', False):
+            return True
+            
+        start_str = push_config.get('start', '08:00')
+        end_str = push_config.get('end', '23:00')
+        
+        try:
+            now = datetime.now().time()
+            start_time = datetime.strptime(start_str, "%H:%M").time()
+            end_time = datetime.strptime(end_str, "%H:%M").time()
+            
+            # 正常窗口: 08:00 - 23:00
+            if start_time <= end_time:
+                is_in_window = start_time <= now <= end_time
+            # 跨日窗口: 22:00 - 08:00
+            else:
+                is_in_window = now >= start_time or now <= end_time
+                
+            if not is_in_window:
+                print(f"💤 当前时间 {now.strftime('%H:%M')} 不在推送窗口 ({start_str}-{end_str})，跳过推送")
+                return False
+                
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ 推送窗口时间解析失败: {e}，默认允许推送")
+            return True
+
     def send_notification(
         self,
         stats: Dict,
@@ -48,11 +81,15 @@ class Notifier:
             stats: 数据库统计信息
             keyword_count: 关键词数量
             keyword_data: 关键词详细数据（包含新闻列表）
-            html_report_path: HTML报告路径
-        
+            html_report_path: HTML 报告文件路径
+            
         Returns:
-            是否发送成功
+            bool: 是否发送成功
         """
+        # 1. 检查推送窗口
+        if not self.check_push_window():
+            return False
+
         if not self.enabled:
             print("⏭ Bark 推送未启用")
             return False
