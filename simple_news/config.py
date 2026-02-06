@@ -102,6 +102,11 @@ def _override_from_env(config: Dict[str, Any]) -> None:
     if 'push_window' not in config.get('storage', {}):
         config.setdefault('storage', {})['push_window'] = push_window
 
+    # 报告配置
+    report_dir = os.getenv('REPORT_DIR')
+    if report_dir:
+        config.setdefault('report', {})['dir'] = report_dir
+
 
 def _validate_config(config: Dict[str, Any]) -> None:
     """

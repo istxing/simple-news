@@ -138,9 +138,18 @@ sudo journalctl -u simple-news.service -f
 - **更新代码**：
   ```bash
   cd ~/simple_news
+  
+  # 1.甚至更新代码
   git pull
-  # 如果有依赖变更
+  
+  # 2. 如果有依赖变更
   ./venv/bin/pip install -r requirements.txt
+  
+  # 3. 检查是否有新配置项
+  # 建议对比 .env.example 和你的 .env，补充新的配置项（如 REPORT_DIR）
+  # 你的本地配置（.env 和 config/config.yaml）不会被覆盖（前提是 .env 未提交到git，config.yaml 若有冲突需手动解决）:
+  # 推荐使用 .env 管理所有自定义配置以避免 git 冲突。
+  ```
   ```
 
 - **查看报告**：
