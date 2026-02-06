@@ -72,13 +72,87 @@ class HTMLReporter:
         stats: Dict,
         timestamp: str
     ) -> str:
-        """生成 HTML 内容"""
+        """生成简约 Tab 风格 HTML 内容"""
         
-        # 关键词统计部分
-        keyword_section = self._generate_keyword_section(keyword_data)
+        # 生成 Tab 按钮和内容
+        tabs_html = []
+        sections_html = []
+        tab_index = 0
         
-        # 平台新闻部分
-        platform_section = self._generate_platform_section(platform_data_list)
+        # 关键词新闻作为第一个 Tab（如果有数据）
+        if keyword_data:
+            active_class = 'active' if tab_index == 0 else ''
+            tabs_html.append(f'<button class="tab-btn {active_class}" onclick="switchTab(\'tab_{tab_index}\')">🔍 关键词新闻</button>')
+            
+            keyword_items_html = []
+            for item in keyword_data:
+                group_name = item['group_name']
+                count = item['count']
+                news_list = item['news_list']
+                
+                news_items = []
+                for news in news_list:
+                    rank = news.get('rank', 0)
+                    rank_class = 'hot' if rank <= self.rank_threshold else ''
+                    platform_name = news.get('platform_name', '未知')
+                    title = news.get('title', '')
+                    url = news.get('url', '#')
+                    news_items.append(f'''
+                <div class="news-item">
+                    <a href="{url}" target="_blank" class="news-title">
+                        <span class="rank {rank_class}">#{rank}</span>
+                        <span class="platform">{platform_name}</span>
+                        <span>{title}</span>
+                    </a>
+                </div>''')
+                
+                keyword_items_html.append(f'''
+            <div class="keyword-group">
+                <div class="keyword-header">
+                    <span class="keyword-name">{group_name}</span>
+                    <span class="keyword-count">{count} 条</span>
+                </div>
+                {''.join(news_items)}
+            </div>''')
+            
+            sections_html.append(f'''
+            <div id="tab_{tab_index}" class="platform-section {active_class}">
+                <div class="platform-header">关键词新闻 ({sum(item['count'] for item in keyword_data)} 条)</div>
+                {''.join(keyword_items_html)}
+            </div>''')
+            tab_index += 1
+        
+        # 平台新闻 Tabs
+        for platform_data in platform_data_list:
+            platform_name = platform_data['platform_name']
+            news_list = platform_data['news_list']
+            
+            active_class = 'active' if tab_index == 0 else ''
+            tabs_html.append(f'<button class="tab-btn {active_class}" onclick="switchTab(\'tab_{tab_index}\')">{platform_name}</button>')
+            
+            news_items_html = []
+            for news in news_list:
+                rank = news.get('rank', 0)
+                rank_class = 'hot' if rank <= self.rank_threshold else ''
+                title = news.get('title', '')
+                url = news.get('url', '#')
+                news_items_html.append(f'''
+                <div class="news-item">
+                    <a href="{url}" target="_blank" class="news-title">
+                        <span class="rank {rank_class}">#{rank}</span>
+                        <span>{title}</span>
+                    </a>
+                </div>''')
+            
+            sections_html.append(f'''
+            <div id="tab_{tab_index}" class="platform-section {active_class}">
+                <div class="platform-header">{platform_name} ({len(news_list)} 条)</div>
+                {''.join(news_items_html)}
+            </div>''')
+            tab_index += 1
+        
+        # 计算今日收录总数
+        total_today = stats.get('today_news', 0)
         
         # 完整 HTML
         html = f'''<!DOCTYPE html>
@@ -86,160 +160,131 @@ class HTMLReporter:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple News 报告 - {timestamp}</title>
+    <title>Simple News 报告</title>
     <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {{
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-secondary: #7f8c8d;
+            --border-color: #eaeaea;
         }}
+
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             line-height: 1.6;
+            padding: 40px 20px;
         }}
         
         .container {{
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            border-radius: 8px;
             overflow: hidden;
+            border: 1px solid var(--border-color);
         }}
         
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            background: #fff;
+            color: var(--primary-color);
+            padding: 40px 40px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
         }}
         
-        .header h1 {{
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }}
-        
-        .header .subtitle {{
-            opacity: 0.9;
-            font-size: 1.1em;
-        }}
+        .header h1 {{ font-size: 2em; margin-bottom: 5px; font-weight: 600; }}
+        .header .subtitle {{ color: var(--text-secondary); font-size: 1em; }}
         
         .stats {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 20px 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-        }}
-        
-        .stat-item {{
-            text-align: center;
-            padding: 10px;
-        }}
-        
-        .stat-value {{
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }}
-        
-        .stat-label {{
-            color: #6c757d;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }}
-        
-        .content {{
-            padding: 30px;
-        }}
-        
-        .section {{
-            margin-bottom: 40px;
-        }}
-        
-        .section-title {{
-            font-size: 1.8em;
-            font-weight: 700;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #667eea;
-            color: #333;
-        }}
-        
-        .keyword-item {{
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-        }}
-        
-        .keyword-header {{
             display: flex;
-            align-items: center;
+            gap: 40px;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        
+        .stat-item {{ text-align: left; }}
+        .stat-value {{ font-size: 1.8em; font-weight: 700; color: var(--primary-color); }}
+        .stat-label {{ color: var(--text-secondary); font-size: 0.85em; text-transform: uppercase; }}
+        
+        .content {{ padding: 40px; }}
+        
+        .tabs-header {{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            padding-bottom: 0;
+        }}
+
+        .tab-btn {{
+            background: none;
+            border: none;
+            padding: 10px 5px;
+            font-size: 0.95em;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.2s;
+        }}
+
+        .tab-btn:hover {{ color: var(--primary-color); }}
+        .tab-btn.active {{
+            color: var(--primary-color);
+            font-weight: 600;
+            border-bottom: 2px solid var(--primary-color);
+        }}
+
+        .platform-section {{ display: none; }}
+        .platform-section.active {{ display: block; animation: fadeIn 0.3s ease; }}
+        
+        .platform-header {{
+            font-size: 1.2em;
+            font-weight: 600;
             margin-bottom: 15px;
+            color: var(--primary-color);
         }}
-        
-        .keyword-name {{
-            font-size: 1.3em;
-            font-weight: 600;
-            color: #333;
-            margin-right: 10px;
-        }}
-        
-        .keyword-count {{
-            background: #667eea;
-            color: white;
-            padding: 3px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 600;
+
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(5px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
         
         .news-item {{
-            background: white;
-            padding: 12px 15px;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            border-left: 3px solid transparent;
-            transition: all 0.3s ease;
+            padding: 10px 0;
+            border-bottom: 1px solid #f5f5f5;
         }}
-        
-        .news-item:hover {{
-            border-left-color: #667eea;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-            transform: translateX(5px);
-        }}
+        .news-item:last-child {{ border-bottom: none; }}
         
         .news-title {{
-            color: #333;
+            color: var(--text-color);
             text-decoration: none;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 1em;
+            line-height: 1.5;
         }}
-        
-        .news-title:hover {{
-            color: #667eea;
-        }}
+        .news-title:hover {{ color: var(--accent-color); }}
         
         .rank {{
-            display: inline-block;
-            min-width: 30px;
+            min-width: 24px;
             text-align: center;
-            font-weight: 600;
-            color: #6c757d;
+            font-weight: 500;
+            color: #b0b0b0;
+            font-size: 0.9em;
         }}
-        
-        .rank.hot {{
-            color: #dc3545;
-            font-weight: 700;
-        }}
+        .rank.hot {{ color: #ff6b6b; font-weight: 600; }}
         
         .platform {{
             display: inline-block;
@@ -247,88 +292,93 @@ class HTMLReporter:
             color: #495057;
             padding: 2px 8px;
             border-radius: 4px;
-            font-size: 0.85em;
+            font-size: 0.8em;
+            white-space: nowrap;
         }}
         
-        .platform-section {{
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
+        .keyword-group {{
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
         }}
+        .keyword-group:last-child {{ border-bottom: none; margin-bottom: 0; }}
         
-        .platform-header {{
-            font-size: 1.3em;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #dee2e6;
+        .keyword-header {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }}
+        .keyword-name {{ font-weight: 600; color: var(--primary-color); }}
+        .keyword-count {{
+            background: var(--accent-color);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
         }}
         
         .footer {{
-            padding: 20px 30px;
-            background: #f8f9fa;
+            padding: 30px;
             text-align: center;
-            color: #6c757d;
-            border-top: 1px solid #e9ecef;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            border-top: 1px solid var(--border-color);
+            background: #fff;
         }}
         
         @media (max-width: 768px) {{
-            body {{
-                padding: 10px;
-            }}
-            
-            .header h1 {{
-                font-size: 1.8em;
-            }}
-            
-            .stats {{
-                grid-template-columns: repeat(2, 1fr);
-            }}
-            
-            .content {{
-                padding: 20px;
-            }}
+            body {{ padding: 10px; }}
+            .header, .stats, .content {{ padding: 20px; }}
+            .stats {{ flex-wrap: wrap; gap: 20px; }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📰 Simple News</h1>
-            <div class="subtitle">简洁的新闻聚合报告</div>
-            <div class="subtitle">{timestamp}</div>
+            <h1>今日热点追踪</h1>
+            <div class="subtitle">Simple News 自动生成报告</div>
         </div>
         
         <div class="stats">
             <div class="stat-item">
-                <div class="stat-value">{stats.get('total_news', 0)}</div>
-                <div class="stat-label">总新闻数</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{stats.get('today_news', 0)}</div>
-                <div class="stat-label">今日新闻</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{len(platform_data_list)}</div>
-                <div class="stat-label">平台数量</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{len(keyword_data)}</div>
-                <div class="stat-label">关键词匹配</div>
+                <div class="stat-value">{total_today}</div>
+                <div class="stat-label">今日总收录</div>
             </div>
         </div>
         
         <div class="content">
-            {keyword_section}
-            {platform_section}
+            <div class="tabs-header" id="platformTabs">
+                {''.join(tabs_html)}
+            </div>
+
+            {''.join(sections_html)}
         </div>
         
         <div class="footer">
-            <p>Powered by Simple News | 数据库大小: {stats.get('db_size_mb', 0)} MB</p>
+            Generated by Simple News Monitor • {timestamp}
         </div>
     </div>
+
+    <script>
+        function switchTab(tabId) {{
+            document.querySelectorAll('.platform-section').forEach(el => {{
+                el.classList.remove('active');
+            }});
+            document.querySelectorAll('.tab-btn').forEach(el => {{
+                el.classList.remove('active');
+            }});
+            const section = document.getElementById(tabId);
+            if (section) {{
+                section.classList.add('active');
+            }}
+            const btn = document.querySelector(`button[onclick="switchTab('${{tabId}}')"]`);
+            if (btn) {{
+                btn.classList.add('active');
+            }}
+        }}
+    </script>
 </body>
 </html>'''
         
