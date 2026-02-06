@@ -1,0 +1,71 @@
+# ═══════════════════════════════════════════════════════════════
+#                   Simple News 配置文件
+#                      Version: 1.0.0
+# ═══════════════════════════════════════════════════════════════
+
+# 应用基础设置
+app:
+  timezone: "Asia/Shanghai"        # 时区配置
+
+# 新闻平台配置
+platforms:
+  - id: "toutiao"
+    name: "今日头条"
+  - id: "wallstreetcn-hot"
+    name: "华尔街见闻"
+  - id: "thepaper"
+    name: "澎湃新闻"
+  - id: "cls-hot"
+    name: "财联社热门"
+  - id: "ifeng"
+    name: "凤凰网"
+  - id: "sspai"
+    name: "少数派"
+  - id: "juejin"
+    name: "稀土掘金"
+  - id: "ithome"
+    name: "IT之家"
+  - id: "zaobao"
+    name: "联合早报"
+  - id: "36kr"
+    name: "36氪"
+  - id: "kaopu"
+    name: "靠谱新闻"
+
+# 爬虫设置
+crawler:
+  request_interval: 2000           # 请求间隔（毫秒）
+  use_proxy: false                 # 是否使用代理
+  proxy: ""                        # 代理地址（如果启用）
+
+# 存储设置
+storage:
+  data_dir: "output"               # 数据目录
+  retention_days: 7                # 数据保留天数（0=永久保留）
+  
+  # 推送时间窗口（控制静默时间）
+  # 类似 Trendradar，只在指定时间段内推送通知，其他时间只爬取不推送
+  # 跨日支持：如果 start > end，表示跨越午夜（如 22:00 - 08:00）
+  push_window:
+    enabled: true        # 是否启用
+    start: "08:00"       # 开始推送时间
+    end: "23:00"         # 结束推送时间
+
+# 报告设置
+report:
+  mode: "incremental"                  # 报告模式: current(当前榜单) | daily(全天汇总) | incremental(增量)
+  rank_threshold: 5                # 排名高亮阈值（≤此值会高亮）
+  max_news_per_keyword: 0          # 每个关键词最大显示条数（0=不限制）
+
+# 通知配置
+notification:
+  bark:
+    enabled: true                    # 是否启用 Bark 推送
+    url: ""  # Bark 推送 URL
+
+# 排序权重配置（用于重新排序不同平台的热搜）
+# 总和应等于 1.0
+weight:
+  rank: 0.6                        # 排名权重（排名越靠前分数越高）
+  frequency: 0.3                   # 频次权重（出现次数越多分数越高）
+  hotness: 0.1                     # 热度权重（热度值越大分数越高）

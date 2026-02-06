@@ -1,5 +1,4 @@
 venv
 output
-config
 __pycache__
 .env
