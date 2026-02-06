@@ -101,7 +101,7 @@ ExecStart=/home/ubuntu/simple_news/venv/bin/python -m simple_news
 
 ### 6.2 配置 Timer 文件
 
-编辑 `systemd/simple-news.timer` 修改运行频率（默认全天 24 小时，每小时的第 10 分钟运行一次）。
+编辑 `systemd/simple-news.timer` 修改运行频率（默认每小时的第 54 分钟运行一次）。
 
 ```bash
 nano systemd/simple-news.timer
@@ -139,17 +139,15 @@ sudo journalctl -u simple-news.service -f
   ```bash
   cd ~/simple_news
   
-  # 1.甚至更新代码
+  # 1. 拉取更新代码
   git pull
   
   # 2. 如果有依赖变更
   ./venv/bin/pip install -r requirements.txt
   
   # 3. 检查是否有新配置项
-  # 建议对比 .env.example 和你的 .env，补充新的配置项（如 REPORT_DIR）
-  # 你的本地配置（.env 和 config/config.yaml）不会被覆盖（前提是 .env 未提交到git，config.yaml 若有冲突需手动解决）:
-  # 推荐使用 .env 管理所有自定义配置以避免 git 冲突。
-  ```
+  # 建议对比 .env.example 和你的 .env，补充新的配置项
+  # 推荐使用 .env 管理所有自定义配置以避免 git 冲突
   ```
 
 - **查看报告**：
