@@ -155,11 +155,10 @@ class Notifier:
         total_keywords = len(keyword_data)
         for i, kw in enumerate(keyword_data, 1):
             group_name = kw['group_name']  # 使用组名
-            count = kw['count']
             news_list = kw['news_list']
             
-            # 关键词标题 (去掉图标)
-            keyword_header = f"{i}. **{group_name}** : {count}条\n\n"
+            # 关键词标题（仅保留组名）
+            keyword_header = f"**{group_name}**\n\n"
             
             # 处理新闻列表
             news_content = ""
