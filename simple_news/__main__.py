@@ -114,13 +114,38 @@ def main():
         print(f"✓ 最新报告: {report_path.parent / 'index.html'}")
         
         # 发送通知
-        notifier = Notifier(config)
-        notifier.send_notification(
-            stats=stats,
-            keyword_count=len(keyword_data),
-            keyword_data=keyword_data,
-            html_report_path=str(report_path)
-        )
+        # 过滤已推送的新闻 (仅针对通知)
+        pushed_titles = []
+        filtered_keyword_data = []
+        
+        for group in keyword_data:
+            new_news_list = []
+            for news in group['news_list']:
+                if not storage.is_pushed(news['title']):
+                    new_news_list.append(news)
+                    pushed_titles.append(news['title'])
+            
+            if new_news_list:
+                # 创建新的组数据，保留其他字段
+                new_group = group.copy()
+                new_group['news_list'] = new_news_list
+                new_group['count'] = len(new_news_list)
+                filtered_keyword_data.append(new_group)
+
+        if filtered_keyword_data:
+            print(f"\n📨 发送通知 ({len(pushed_titles)} 条新内容)...")
+            notifier = Notifier(config)
+            notifier.send_notification(
+                stats=stats,
+                keyword_count=len(filtered_keyword_data),
+                keyword_data=filtered_keyword_data,
+                html_report_path=str(report_path)
+            )
+            
+            # 标记为已推送
+            storage.mark_pushed(pushed_titles)
+        else:
+            print("\n📭 没有新内容需要推送")
         
         # 显示统计信息
         print("============================================================")

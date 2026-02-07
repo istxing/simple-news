@@ -56,6 +56,8 @@ class NewsStorage:
         
         return self.data_dir / db_filename
 
+
+
     def _init_database_for_path(self, db_path: Path):
         """
         为指定路径初始化数据库表
@@ -109,7 +111,101 @@ class NewsStorage:
                 ON keyword_stats(date)
             ''')
             
+            # 推送记录表 (用于去重)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS pushed_news (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_pushed_title 
+                ON pushed_news(title, date)
+            ''')
+            
             conn.commit()
+
+    def is_pushed(self, title: str) -> bool:
+        """
+        检查标题是否已在今天推送过
+        
+        Args:
+            title: 新闻标题
+            
+        Returns:
+            是否已推送
+        """
+        today = datetime.now(self.timezone).strftime('%Y-%m-%d')
+        db_path = self._get_db_path(today)
+        
+        if not db_path.exists():
+            return False
+            
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM pushed_news WHERE title = ? AND date = ?", 
+                (title, today)
+            )
+            return cursor.fetchone() is not None
+
+    def mark_pushed(self, titles: List[str]):
+        """
+        标记标题为已推送
+        
+        Args:
+            titles: 标题列表
+        """
+        if not titles:
+            return
+            
+        now = datetime.now(self.timezone)
+        created_at = now.strftime('%Y-%m-%d %H:%M:%S')
+        today = now.strftime('%Y-%m-%d')
+        db_path = self._get_db_path(today)
+        
+        # 确保表存在
+        self._init_database_for_path(db_path)
+            
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = [(title, today, created_at) for title in titles]
+            cursor.executemany(
+                "INSERT INTO pushed_news (title, date, created_at) VALUES (?, ?, ?)",
+                data
+            )
+            conn.commit()
+            
+    def filter_pushed_news(self, news_list: List[Dict]) -> List[Dict]:
+        """
+        过滤掉已推送的新闻
+        
+        Args:
+            news_list: 新闻列表
+            
+        Returns:
+            未推送的新闻列表
+        """
+        if not news_list:
+            return []
+            
+        today = datetime.now(self.timezone).strftime('%Y-%m-%d')
+        db_path = self._get_db_path(today)
+        
+        if not db_path.exists():
+            return news_list
+            
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            # 获取今天所有已推送的标题
+            cursor.execute("SELECT title FROM pushed_news WHERE date = ?", (today,))
+            pushed_titles = {row[0] for row in cursor.fetchall()}
+            
+        return [news for news in news_list if news['title'] not in pushed_titles]
+
     
     def _migrate_from_single_db(self):
         """

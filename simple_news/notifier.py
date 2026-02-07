@@ -129,8 +129,6 @@ class Notifier:
         
         # 构建头部（每个批次都包含）
         base_header = f"""**总新闻数：** {stats.get('today_news', 0)}条
-**平台数：** {stats.get('platform_count', 0)}个
-**关键词数：** {len(keyword_data)}个
 **时间：** {now.strftime('%Y-%m-%d %H:%M')}
 
 ---
@@ -139,9 +137,10 @@ class Notifier:
         
         # 构建底部（每个批次都包含）
         base_footer = f"\n\n> 更新时间：{now.strftime('%Y-%m-%d %H:%M:%S')}"
+
         
         if not keyword_data:
-            content = base_header + "📭 暂无匹配的关键词\n" + base_footer
+            content = base_header + "暂无匹配的关键词\n" + base_footer
             batches.append(content)
             return batches
         
@@ -150,7 +149,7 @@ class Notifier:
         current_batch_has_content = False
         
         # 内容限制（防止单条新闻过长）
-        max_news_per_keyword = 5  # 每个关键词最多5条新闻
+
         
         # 处理所有关键词（不限制数量，通过分批次解决）
         total_keywords = len(keyword_data)
@@ -159,25 +158,14 @@ class Notifier:
             count = kw['count']
             news_list = kw['news_list']
             
-            # 关键词标题
-            if count >= 10:
-                keyword_header = f"🔥 [{i}] **{group_name}** : {count}条\n\n"
-            elif count >= 5:
-                keyword_header = f"📈 [{i}] **{group_name}** : {count}条\n\n"
-            else:
-                keyword_header = f"📌 [{i}] **{group_name}** : {count}条\n\n"
+            # 关键词标题 (去掉图标)
+            keyword_header = f"{i}. **{group_name}** : {count}条\n\n"
             
             # 处理新闻列表
             news_content = ""
-            display_count = min(max_news_per_keyword, len(news_list))
-            for j, news in enumerate(news_list[:display_count], 1):
+            for j, news in enumerate(news_list, 1):
                 formatted_news = self._format_news_item(news, j)
                 news_content += formatted_news
-            
-            # 如果还有更多新闻
-            remaining = len(news_list) - display_count
-            if remaining > 0:
-                news_content += f"     ...还有{remaining}条\n\n"
             
             # 关键词完整内容
             keyword_full_content = keyword_header + news_content
@@ -233,9 +221,10 @@ class Notifier:
             formatted_title = title
         
         # 格式：序号. [标题](链接)
-        #      来源 #排名
+        #      来源
         result = f"  {index}. {formatted_title}\n"
-        result += f"     `[{platform_name}] #{rank}`\n\n"
+        # 去掉 [] 和 #排名
+        result += f"     `{platform_name}`\n\n"
         
         return result
     
