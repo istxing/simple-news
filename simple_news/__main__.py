@@ -116,14 +116,21 @@ def main():
         # 发送通知
         # 过滤已推送的新闻 (仅针对通知)
         pushed_titles = []
+        pushed_titles_set = set()
         filtered_keyword_data = []
         
         for group in keyword_data:
             new_news_list = []
             for news in group['news_list']:
-                if not storage.is_pushed(news['title']):
+                title = news['title']
+                # 全局去重：同一标题命中多个词组时，本次推送只保留一次
+                if title in pushed_titles_set:
+                    continue
+
+                if not storage.is_pushed(title):
                     new_news_list.append(news)
-                    pushed_titles.append(news['title'])
+                    pushed_titles.append(title)
+                    pushed_titles_set.add(title)
             
             if new_news_list:
                 # 创建新的组数据，保留其他字段

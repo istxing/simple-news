@@ -287,15 +287,28 @@ class NewsStorage:
         self._init_database_for_path(db_path)
         
         total_saved = 0
+        total_skipped = 0
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
+
+            # 预加载当日已存在的 (platform_id, title)，避免重复入库
+            cursor.execute('''
+                SELECT platform_id, title FROM news WHERE date = ?
+            ''', (date,))
+            existing_keys = {(row[0], row[1]) for row in cursor.fetchall()}
+            batch_keys = set()
             
             for platform_data in platform_data_list:
                 platform_id = platform_data['platform_id']
                 platform_name = platform_data['platform_name']
                 
                 for news_item in platform_data['news_list']:
+                    dedup_key = (platform_id, news_item['title'])
+                    if dedup_key in existing_keys or dedup_key in batch_keys:
+                        total_skipped += 1
+                        continue
+
                     cursor.execute('''
                         INSERT INTO news (
                             platform_id, platform_name, title, url, mobile_url,
@@ -312,11 +325,12 @@ class NewsStorage:
                         date,
                         crawl_time,
                     ))
+                    batch_keys.add(dedup_key)
                     total_saved += 1
             
             conn.commit()
         
-        print(f"✓ 已保存 {total_saved} 条新闻到数据库")
+        print(f"✓ 已保存 {total_saved} 条新闻到数据库（跳过重复 {total_skipped} 条）")
         
         # 清理旧数据
         if self.retention_days > 0:
