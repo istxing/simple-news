@@ -64,8 +64,20 @@ def classify_title(title: str, topics_conf: Dict, default_topic: str = "other") 
         conf = DEFAULT_TOPICS
     topics = conf.get("topics", {})
 
+    # AI 最高优先级：一旦命中直接返回
+    ai_rule = topics.get("ai", {})
+    ai_include = [k.lower() for k in ai_rule.get("include", []) if k]
+    ai_exclude = [k.lower() for k in ai_rule.get("exclude", []) if k]
+    if not any(x in text for x in ai_exclude):
+        ai_matched = [k for k in ai_include if k in text]
+        if ai_matched:
+            ai_score = min(1.0, 0.35 + 0.15 * len(ai_matched))
+            return "ai", ai_score, f"matched:{','.join(ai_matched[:4])}"
+
     best = ("unknown", 0.0, "no_match")
     for topic, rule in topics.items():
+        if topic == "ai":
+            continue
         include = [k.lower() for k in rule.get("include", []) if k]
         exclude = [k.lower() for k in rule.get("exclude", []) if k]
 
