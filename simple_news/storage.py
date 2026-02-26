@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 import pytz
+from simple_news.topic_classifier import classify_title
 
 
 class NewsStorage:
@@ -79,10 +80,22 @@ class NewsStorage:
                     mobile_url TEXT,
                     rank INTEGER,
                     crawl_time TEXT NOT NULL,
+                    topic TEXT DEFAULT 'other',
+                    topic_score REAL DEFAULT 0,
+                    topic_reason TEXT DEFAULT '',
                     date TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
             ''')
+
+            # 兼容已有数据库：为旧表补齐主题字段
+            existing_cols = {row[1] for row in cursor.execute("PRAGMA table_info(news)").fetchall()}
+            if 'topic' not in existing_cols:
+                cursor.execute("ALTER TABLE news ADD COLUMN topic TEXT DEFAULT 'other'")
+            if 'topic_score' not in existing_cols:
+                cursor.execute("ALTER TABLE news ADD COLUMN topic_score REAL DEFAULT 0")
+            if 'topic_reason' not in existing_cols:
+                cursor.execute("ALTER TABLE news ADD COLUMN topic_reason TEXT DEFAULT ''")
             
             # 创建索引
             cursor.execute('''
@@ -94,6 +107,17 @@ class NewsStorage:
                 CREATE INDEX IF NOT EXISTS idx_news_platform 
                 ON news(platform_id, date)
             ''')
+
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_news_topic
+                ON news(topic, date)
+            ''')
+
+            # 兼容历史默认值
+            cursor.execute("UPDATE news SET topic='other' WHERE topic='general'")
+
+            # 对旧数据做一次主题回填，确保历史数据也可按主题筛选
+            self._backfill_topics(conn)
             
             # 关键词统计表
             cursor.execute('''
@@ -127,6 +151,41 @@ class NewsStorage:
             ''')
             
             conn.commit()
+
+    def _backfill_topics(self, conn: sqlite3.Connection):
+        """为历史未分类新闻补齐 topic/topic_score/topic_reason。"""
+        cursor = conn.cursor()
+        rows = cursor.execute(
+            '''
+            SELECT id, title
+            FROM news
+            WHERE
+                topic IS NULL OR topic = '' OR
+                topic_score IS NULL OR topic_score = 0 OR
+                topic_reason IS NULL OR topic_reason = ''
+            '''
+        ).fetchall()
+        if not rows:
+            return
+
+        topics_conf = self.config.get('topics', {})
+        updates = []
+        for row_id, title in rows:
+            topic, topic_score, topic_reason = classify_title(
+                title,
+                topics_conf,
+                default_topic='other',
+            )
+            updates.append((topic, topic_score, topic_reason, row_id))
+
+        cursor.executemany(
+            '''
+            UPDATE news
+            SET topic = ?, topic_score = ?, topic_reason = ?
+            WHERE id = ?
+            ''',
+            updates,
+        )
 
     def is_pushed(self, title: str) -> bool:
         """
@@ -225,6 +284,7 @@ class NewsStorage:
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM news")
                 rows = cursor.fetchall()
+                columns = [d[0] for d in cursor.description] if cursor.description else []
             
             if not rows:
                 print("  旧数据库为空，跳过迁移")
@@ -234,9 +294,21 @@ class NewsStorage:
             from collections import defaultdict
             by_date = defaultdict(list)
             
+            col_idx = {name: i for i, name in enumerate(columns)}
+            required = [
+                'id', 'platform_id', 'platform_name', 'title', 'url', 'mobile_url',
+                'rank', 'crawl_time', 'date', 'created_at'
+            ]
             for row in rows:
-                date = row[8]  # date 字段索引
-                by_date[date].append(row)
+                # 兼容旧/新结构：按列名映射，不依赖固定索引
+                mapped = []
+                for col in required:
+                    idx = col_idx.get(col)
+                    mapped.append(row[idx] if idx is not None else None)
+                date = mapped[8]
+                if not date:
+                    continue
+                by_date[date].append(tuple(mapped))
             
             # 写入各日期数据库
             migrated_count = 0
@@ -309,11 +381,17 @@ class NewsStorage:
                         total_skipped += 1
                         continue
 
+                    topic, topic_score, topic_reason = classify_title(
+                        news_item['title'],
+                        self.config.get('topics', {}),
+                        default_topic='other'
+                    )
+
                     cursor.execute('''
                         INSERT INTO news (
                             platform_id, platform_name, title, url, mobile_url,
-                            rank, crawl_time, date, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            rank, crawl_time, topic, topic_score, topic_reason, date, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         platform_id,
                         platform_name,
@@ -322,6 +400,9 @@ class NewsStorage:
                         news_item['mobile_url'],
                         news_item['rank'],
                         crawl_time,
+                        topic,
+                        topic_score,
+                        topic_reason,
                         date,
                         crawl_time,
                     ))
